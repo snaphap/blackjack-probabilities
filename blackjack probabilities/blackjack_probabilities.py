@@ -38,6 +38,22 @@ def total(hand):
 def noAceTotal(hand):
     return sum([value(card1) for card1 in [card for card in hand if card != 'A']])
 
+### IGNORE THESE FOR NOW ###
+
+def pnGivenC(c):
+    """Given a true count c, returns a function n(p) that returns the number of 10+ cards needed to have been drawn if p 6- cards were drawn so that the true count is c."""
+    def n(p, decks = 6):
+        return(
+            ((156 + 4*c) / (156 - 4*c)) * p -
+            156 * c * decks / (156 - 4*c)
+            )
+    return(n)
+
+def cGivenPN(p, n):
+    return()
+
+def generateDeck(trueCount = 0):
+    ...
 
 def superTotal(hand):
     """Same as total, except treats every ace as an 11."""
@@ -49,6 +65,8 @@ def superTotal(hand):
             addValue = value(card)
         handTotal += addValue
     return handTotal
+
+### END OF IGNORE THESE FOR NOW LAND ###
 
 class Blackjack():
     def __init__(self, hand: list[str], upcard: str, decks:int = DECKS, trueCount:float = 0, double:bool = True):
@@ -110,8 +128,6 @@ class Blackjack():
             # case where an Ace is in the hand (ie the soft total table must be used)
             if 'A' in self.playerHand and noAceTotal(self.playerHand) < 11:
                 softValue = playerTotal - 11
-                if softValue == 10:
-                    softValue = 'T'
                 softTotalEntry = f'A,{softValue}'
 
                 action = softTotals[self.dealerUpcard][softTotalEntry]
@@ -153,30 +169,39 @@ class Blackjack():
              
 #game = Blackjack(['2', '3'], '5')
 
-def simulate(initialHandTotal: int, upcard: str, iterations: int = 1000):
+def simulate(handInput, upcard: str, iterations: int = 1000):
+    # initialize counters
     wins = 0
     pushes = 0
     losses = 0
     blackjacks = 0
     
-    card1UpperBound = min(initialHandTotal - 2, 10)
-    card1LowerBound = max(2, initialHandTotal - 10)
-    print('Range:', card1LowerBound, card1UpperBound)
+    # if handInput is an integer, treat it as a hard total
+    if type(handInput) is int:
+        # find the range of possible cards
+        card1UpperBound = min(handInput - 2, 10)
+        card1LowerBound = max(2, handInput - 10)
 
     for i in range(iterations):
         if i%(iterations/1000) == 0:
             ...#print(f'{i*100/iterations}%')
             
-        card1 = random.choice([i for i in range(card1LowerBound, card1UpperBound + 1)])
-        card2 = initialHandTotal - card1
-        card1, card2 = str(card1), str(card2)
+        if type(handInput) is int:
+            # randomly generate the hand based on the possible card range
+            card1 = random.choice([i for i in range(card1LowerBound, card1UpperBound + 1)])
+            card2 = handInput - card1
+            card1, card2 = str(card1), str(card2)
+            hand = [card1, card2]
+        else:
+            hand = [handInput[0], handInput[2:]]
         
-        hand = [card1, card2]
+        # run the game
         game = Blackjack(hand, upcard)
         result = game.result()
         
         # check later if game.result is actually randomizing correctly
         
+        # add to counters depending on the result of the blackjack game
         if result == 'Win':
             wins += 1
         if result == 'Lose':
@@ -185,24 +210,51 @@ def simulate(initialHandTotal: int, upcard: str, iterations: int = 1000):
             pushes += 1
         if result == 'Blackjack':
             blackjacks += 1
+    
+    # divide the counters by the number of iterations and then output as a dictionary
     winrate, lossrate, pushrate, blackjackrate = wins/iterations, losses/iterations, pushes/iterations, blackjacks/iterations
     return(
-        {'Win prop': winrate + blackjackrate, 'Loss prop': lossrate, 'Push prop': pushrate, 'Ex': (winrate) + (lossrate*-1) + (blackjackrate * 3/2)}
+        {'Win prop': winrate + blackjackrate, 'Loss prop': lossrate, 'Push prop': pushrate, 'Blackjack rate': blackjackrate, 'Ex': (winrate) + (lossrate * -1) + (blackjackrate * 3/2)}
         )
 
-hardTotalEx = pd.DataFrame(
-    index = [str(i) for i in range(20, 3, -1)], 
-    columns = [str(i) for i in range(2, 11)] + ['A']
-)
 
-iterations = 10000
 
-for handTotal, row in hardTotalEx.iterrows():
-    for upcard in hardTotals.columns:
-        print(f'Upcard: {upcard}, Hand total: {handTotal}')
-        hardTotalEx[upcard][handTotal] = simulate(int(handTotal), upcard, iterations = iterations)['Ex']
+def createHardTotalTable(iterations = 10000, statistic = 'Ex'):
+    """Creates a csv that contains the simulated statistic for each hand and upcard in the given table. Ex means expected value."""
+    
+    if statistic not in ['Ex', 'Win prop', 'Loss prop', 'Push prop']:
+        raise Exception(f"Inputted statistic {statistic} is invalid. Valid stat strings are: 'Ex', 'Win prop', 'Loss prop', 'Push prop'")
+    
+    hardTotalEx = pd.DataFrame(
+        index = [str(i) for i in range(20, 3, -1)], 
+        columns = [str(i) for i in range(2, 11)] + ['A']
+    )
+    
+    for handTotal, row in hardTotalEx.iterrows():
+        for upcard in hardTotals.columns:
+            print(f'Upcard: {upcard}, Hand total: {handTotal}')
+            hardTotalEx[upcard][handTotal] = simulate(int(handTotal), upcard, iterations = iterations)[statistic]
+    hardTotalEx.to_csv('hard total output.csv')
 
-hardTotalEx.to_csv('hard total output.csv')
+
+def createSoftTotalTable(iterations = 10000, statistic = 'Ex'):
+    """Creates a csv that contains the simulated statistic for each hand and upcard in the given table. Ex means expected value."""
+    
+    if statistic not in ['Ex', 'Win prop', 'Loss prop', 'Push prop']:
+        raise Exception(f"Inputted statistic {statistic} is invalid. Valid stat strings are: 'Ex', 'Win prop', 'Loss prop', 'Push prop'")
+    
+    softTotalEx = pd.DataFrame(
+        index = [f'A,{i}' for i in range(10, 1, -1)], 
+        columns = [str(i) for i in range(2, 11)] + ['A']
+    )
+    
+    for hand, row in softTotals.iterrows():
+        for upcard in hardTotals.columns:
+            print(f'Upcard: {upcard}, Hand: {hand}')
+            softTotalEx[upcard][hand] = simulate(hand, upcard, iterations = iterations)[statistic]
+    softTotalEx.to_csv('soft total output.csv')
 
 # doubling means you hit once then stop
 # when you split aces, you only get one card for each hand
+
+# when generating the cards that satisfy the given true count, make sure to remove those cards from the full shoe rather than making them the shoe
