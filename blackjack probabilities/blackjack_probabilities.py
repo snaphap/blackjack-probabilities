@@ -14,6 +14,7 @@ softTotals.set_index('Soft Total', inplace = True)
 pairSplitting.set_index('Pair', inplace = True)
 
 possibleUpcards = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '10', '10', '10', 'A']
+DECK = possibleUpcards * 4
 
 def value(card):
     """Takes a card as a string and returns its value as an integer."""
@@ -38,8 +39,6 @@ def total(hand):
 def noAceTotal(hand):
     return sum([value(card1) for card1 in [card for card in hand if card != 'A']])
 
-### IGNORE THESE FOR NOW ###
-
 def pnGivenC(c):
     """Given a true count c, returns a function n(p) that returns the number of 10+ cards needed to have been drawn if p 6- cards were drawn so that the true count is c."""
     def n(p, decks = 6):
@@ -49,11 +48,50 @@ def pnGivenC(c):
             )
     return(n)
 
-def cGivenPN(p, n):
-    return()
+def cGivenPN(p, n, decks = 6):
+    """Returns the true count of a deck given there are p 6- cards and n 10+ cards. Assumes that the number of 7-9 cards is 1/3(p+n)"""
+    return(
+        (156*p - 156*n) / 
+        (156*decks - 4*p - 4*n)
+        )
 
-def generateDeck(trueCount = 0):
-    ...
+def generateShoe(trueCount = 0, decks = 6):
+    # if trueCount = 0, return a full shoe
+    if trueCount == 0:
+        return(possibleUpcards * 4 * decks)
+    
+    # otherwise, find p and n
+    else:
+        nGivenPC = pnGivenC(trueCount)
+        p = 0
+        z = .5 # arbitrary float value
+        n = .5 # arbitrary float value
+        while not n.is_integer() or not z.is_integer():
+            p += 1
+            if p == 117: # the 117 is hardcoded to 6 decks for now
+                raise Exception('Given true count is impossible')
+            n = round(nGivenPC(p), 5)
+            z = round((1/3) * (p + n), 5)
+            if p < 0 or n < 0: # this is super hacky
+                n = 1.5 # if p or n is negative, set n to an arbitrary float so that the while loop keeps going
+        n, z = int(n), int(z)
+        
+
+        lessThan7 = ['2', '3', '4', '5', '6'] * 4 * decks
+        zero = ['7', '8', '9'] * 4 * decks
+        moreThan9 = ['10', '10', '10', '10', 'A'] * 4 * decks
+        
+        lessThan7Drawn = random.choice(lessThan7, size = p).tolist()
+        zeroDrawn = random.choice(zero, size = z).tolist()
+        moreThan9Drawn = random.choice(moreThan9, size = n).tolist()
+        
+        shoe = DECK * decks
+        for card in lessThan7Drawn + zeroDrawn + moreThan9Drawn:
+            if not card in shoe:
+                print(shoe, '\n', card)
+            shoe.remove(card)
+            
+        return(shoe)
 
 def superTotal(hand):
     """Same as total, except treats every ace as an 11."""
@@ -66,15 +104,13 @@ def superTotal(hand):
         handTotal += addValue
     return handTotal
 
-### END OF IGNORE THESE FOR NOW LAND ###
-
 class Blackjack():
     def __init__(self, hand: list[str], upcard: str, decks:int = DECKS, trueCount:float = 0, double:bool = True):
         """Creates a blackjack game."""
         # this is gonna need to factor count in at some point
 
         # defines the current deck of the blackjack game
-        self.deck = possibleUpcards * 4 * decks
+        self.deck = generateShoe(trueCount = trueCount)
         
         # defines whether or not the game allows doubling
         self.double = True
@@ -139,13 +175,15 @@ class Blackjack():
                 self.playerTurn(action)
             
     def dealerPlay(self):
-        if total(self.dealerHand) < 17:
+        while total(self.dealerHand) < 17:
             self.deal(self.dealerHand)
+           
     
     def result(self):
         # the player plays, then the dealer plays
         self.playerPlay()
-        self.dealerPlay()
+        if total(self.playerHand) < 21:
+            self.dealerPlay()
         
         # determines whether the player wins or loses
         playerTotal = total(self.playerHand)
@@ -154,7 +192,6 @@ class Blackjack():
             return 'Lose'
         elif dealerTotal > 21:
             return 'Win'
-            return 'Blackjack'
         elif playerTotal < dealerTotal:
             return 'Lose'
         elif playerTotal == 21:
@@ -166,10 +203,10 @@ class Blackjack():
         
     def __str__(self):
         return f'Upcard: {self.dealerUpcard}, Hand: {self.playerHand}\nPlayer hand: {self.playerHand}\nDealer hand: {self.dealerHand}'
-             
-#game = Blackjack(['2', '3'], '5')
 
-def simulate(handInput, upcard: str, iterations: int = 1000):
+game = Blackjack(['A', '10'], '2')
+
+def simulate(handInput, upcard: str, iterations: int = 1000, trueCount = 0):
     # initialize counters
     wins = 0
     pushes = 0
@@ -184,7 +221,7 @@ def simulate(handInput, upcard: str, iterations: int = 1000):
 
     for i in range(iterations):
         if i%(iterations/1000) == 0:
-            ...#print(f'{i*100/iterations}%')
+            print(f'{i*100/iterations}%')
             
         if type(handInput) is int:
             # randomly generate the hand based on the possible card range
@@ -196,7 +233,7 @@ def simulate(handInput, upcard: str, iterations: int = 1000):
             hand = [handInput[0], handInput[2:]]
         
         # run the game
-        game = Blackjack(hand, upcard)
+        game = Blackjack(hand, upcard, trueCount = trueCount)
         result = game.result()
         
         # check later if game.result is actually randomizing correctly
@@ -219,8 +256,8 @@ def simulate(handInput, upcard: str, iterations: int = 1000):
 
 
 
-def createHardTotalTable(iterations = 10000, statistic = 'Ex'):
-    """Creates a csv that contains the simulated statistic for each hand and upcard in the given table. Ex means expected value."""
+def createHardTotalTable(trueCount = 0, iterations = 10000, statistic = 'Ex'):
+    """Creates a csv that contains the simulated statistic for each hand and upcard in the hard totals table. Ex means expected value."""
     
     if statistic not in ['Ex', 'Win prop', 'Loss prop', 'Push prop']:
         raise Exception(f"Inputted statistic {statistic} is invalid. Valid stat strings are: 'Ex', 'Win prop', 'Loss prop', 'Push prop'")
@@ -233,12 +270,12 @@ def createHardTotalTable(iterations = 10000, statistic = 'Ex'):
     for handTotal, row in hardTotalEx.iterrows():
         for upcard in hardTotals.columns:
             print(f'Upcard: {upcard}, Hand total: {handTotal}')
-            hardTotalEx[upcard][handTotal] = simulate(int(handTotal), upcard, iterations = iterations)[statistic]
-    hardTotalEx.to_csv('hard total output.csv')
+            hardTotalEx[upcard][handTotal] = simulate(int(handTotal), upcard, iterations = iterations, trueCount = trueCount)[statistic]
+    hardTotalEx.to_csv(f'hard total output count{trueCount}.csv')
 
 
-def createSoftTotalTable(iterations = 10000, statistic = 'Ex'):
-    """Creates a csv that contains the simulated statistic for each hand and upcard in the given table. Ex means expected value."""
+def createSoftTotalTable(trueCount = 0, iterations = 10000, statistic = 'Ex'):
+    """Creates a csv that contains the simulated statistic for each hand and upcard in the soft totals table. Ex means expected value."""
     
     if statistic not in ['Ex', 'Win prop', 'Loss prop', 'Push prop']:
         raise Exception(f"Inputted statistic {statistic} is invalid. Valid stat strings are: 'Ex', 'Win prop', 'Loss prop', 'Push prop'")
@@ -254,7 +291,13 @@ def createSoftTotalTable(iterations = 10000, statistic = 'Ex'):
             softTotalEx[upcard][hand] = simulate(hand, upcard, iterations = iterations)[statistic]
     softTotalEx.to_csv('soft total output.csv')
 
+
+createHardTotalTable(iterations = 100, trueCount = 5)
+
 # doubling means you hit once then stop
 # when you split aces, you only get one card for each hand
+# when splitting you can split until you have 4 hands, often max of 3
+
+# when you have a blackjack, the dealer does not play
 
 # when generating the cards that satisfy the given true count, make sure to remove those cards from the full shoe rather than making them the shoe
