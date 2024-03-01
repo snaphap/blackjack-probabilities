@@ -58,7 +58,7 @@ def cGivenPN(p, n, decks = 6):
 def generateShoe(trueCount = 0, decks = 6):
     # if trueCount = 0, return a full shoe
     if trueCount == 0:
-        return(possibleUpcards * 4 * decks)
+        return(DECK * decks)
     
     # otherwise, find p and n
     else:
@@ -81,9 +81,9 @@ def generateShoe(trueCount = 0, decks = 6):
         zero = ['7', '8', '9'] * 4 * decks
         moreThan9 = ['10', '10', '10', '10', 'A'] * 4 * decks
         
-        lessThan7Drawn = random.choice(lessThan7, size = p).tolist()
-        zeroDrawn = random.choice(zero, size = z).tolist()
-        moreThan9Drawn = random.choice(moreThan9, size = n).tolist()
+        lessThan7Drawn = random.choice(lessThan7, size = p, replace = False).tolist()
+        zeroDrawn = random.choice(zero, size = z, replace = False).tolist()
+        moreThan9Drawn = random.choice(moreThan9, size = n, replace = False).tolist()
         
         shoe = DECK * decks
         for card in lessThan7Drawn + zeroDrawn + moreThan9Drawn:
@@ -105,29 +105,70 @@ def superTotal(hand):
     return handTotal
 
 class Blackjack():
-    def __init__(self, hand: list[str], upcard: str, decks:int = DECKS, trueCount:float = 0, double:bool = True):
+    def __init__(self, hand = None, upcard = None, decks:int = DECKS, trueCount:float = 0, double:bool = True):
         """Creates a blackjack game."""
-        # this is gonna need to factor count in at some point
 
-        # defines the current deck of the blackjack game
+        # defines the current shoe of the blackjack game
         self.deck = generateShoe(trueCount = trueCount)
         
         # defines whether or not the game allows doubling
         self.double = True
         
-        # defines the player and dealer hands
-        self.playerHand = hand
-        self.dealerUpcard = upcard
-        self.dealerHiddenCard = random.choice(self.deck)
-        self.dealerHand = [self.dealerUpcard] + [self.dealerHiddenCard]
+        # if no hand or upcard is passed when defining the class, randomize them
+        if hand is None and upcard is None:
+            print('tw none')
+            cards = random.choice(self.deck, size = 4, replace = False)
+            self.playerHand = [cards[0]] + [cards[2]]
+            self.dealerHiddenCard = cards[1]
+            self.dealerUpcard = cards[3]
+            self.dealerHand = [self.dealerUpcard, self.dealerHiddenCard]
+            
+            self.deck.remove(self.dealerHiddenCard); self.deck.remove(self.dealerUpcard)
+            for card in self.playerHand:
+                self.deck.remove(card)
         
-        # removes every card in the player and dealer hands from the deck
-        self.deck.remove(self.dealerUpcard); self.deck.remove(self.dealerHiddenCard)
-        for card in self.playerHand:
-            self.deck.remove(card)
+        # if no hand is passed but an upcard is, randomize the hand
+        elif hand is None and not upcard is None:
+            self.dealerUpcard = upcard
+            self.deck.remove(upcard)
+            
+            cards = random.choice(self.deck, size = 3, replace = False)
+            self.playerHand = [cards[0]] + [cards[2]]
+            self.dealerHiddenCard = cards[1]
+            self.dealerHand = [self.dealerUpcard, self.dealerHiddenCard]
+            
+            self.deck.remove(self.dealerHiddenCard)
+            for card in self.playerHand:
+                self.deck.remove(card)
+                
+        # if no upcard is passed but a hand is, randomize the upcard
+        elif not hand is None and upcard is None:
+            self.playerHand = hand
+            for card in self.playerHand:
+                self.deck.remove(card)
+            
+            cards = random.choice(self.deck, size = 2, replace = False)
+            self.dealerHiddenCard = cards[0]
+            self.dealerUpcard = cards[1]
+            self.dealerHand = [self.dealerUpcard, self.dealerHiddenCard]
+            
+            self.deck.remove(self.dealerHiddenCard); self.deck.remove(self.dealerUpcard)
+        
+        # if both are passed, randomize only the hidden card
+        else:
+            self.playerHand = hand
+            self.dealerUpcard = upcard
+            self.dealerHiddenCard = random.choice(self.deck)
+            self.dealerHand = [self.dealerUpcard] + [self.dealerHiddenCard]
+            
+            self.deck.remove(self.dealerUpcard); self.deck.remove(self.dealerHiddenCard)
+            for card in self.playerHand:
+                self.deck.remove(card)
         
         # sets playerState to playing
         self.playerState = 'Playing'
+        
+        self.doubled = False
 
     def deal(self, hand):
         """Deals a card from the deck to the specified hand (self.playerHand or self.dealerHand)."""
@@ -146,6 +187,7 @@ class Blackjack():
             self.playerState = 'Done'
         elif 'D' in action and self.double == True and self.playerState == 'Playing':
             self.deal(self.playerHand)
+            self.doubled = True
             self.playerState = 'Done'
         elif action == 'D':
             self.deal(self.playerHand)
@@ -178,7 +220,7 @@ class Blackjack():
         while total(self.dealerHand) < 17:
             self.deal(self.dealerHand)
            
-    
+
     def result(self):
         # the player plays, then the dealer plays
         self.playerPlay()
@@ -189,20 +231,26 @@ class Blackjack():
         playerTotal = total(self.playerHand)
         dealerTotal = total(self.dealerHand)
         if playerTotal > 21:
-            return 'Lose'
+            output = 'Lose'
         elif dealerTotal > 21:
-            return 'Win'
+            output = 'Win'
         elif playerTotal < dealerTotal:
-            return 'Lose'
-        elif playerTotal == 21:
-            return 'Blackjack'
+            output = 'Lose'
+        elif playerTotal == dealerTotal:
+            output = 'Push'
         elif dealerTotal < playerTotal:
-            return 'Win'
-        else:
-            return 'Push'
+            if playerTotal == 21:
+                output = 'Blackjack'
+            else:
+                output = 'Win'
+                
+        if self.doubled == True:
+            output = f'Doubled {output}'
+            
+        return output
         
     def __str__(self):
-        return f'Upcard: {self.dealerUpcard}, Hand: {self.playerHand}\nPlayer hand: {self.playerHand}\nDealer hand: {self.dealerHand}'
+        return f'Upcard: {self.dealerUpcard}\nHand: {self.playerHand}\nDealer hand: {self.dealerHand}'
 
 game = Blackjack(['A', '10'], '2')
 
@@ -224,11 +272,14 @@ def simulate(handInput, upcard: str, iterations: int = 1000, trueCount = 0):
             print(f'{i*100/iterations}%')
             
         if type(handInput) is int:
-            # randomly generate the hand based on the possible card range
-            card1 = random.choice([i for i in range(card1LowerBound, card1UpperBound + 1)])
-            card2 = handInput - card1
-            card1, card2 = str(card1), str(card2)
-            hand = [card1, card2]
+            if handInput == 2 or handInput == 3:
+                hand = [str(handInput)]
+            else:
+                # randomly generate the hand based on the possible card range
+                card1 = random.choice([i for i in range(card1LowerBound, card1UpperBound + 1)])
+                card2 = handInput - card1
+                card1, card2 = str(card1), str(card2)
+                hand = [card1, card2]
         else:
             hand = [handInput[0], handInput[2:]]
         
@@ -239,13 +290,13 @@ def simulate(handInput, upcard: str, iterations: int = 1000, trueCount = 0):
         # check later if game.result is actually randomizing correctly
         
         # add to counters depending on the result of the blackjack game
-        if result == 'Win':
+        if 'Win' in result:
             wins += 1
-        if result == 'Lose':
+        if 'Lose' in result:
             losses += 1
-        if result == 'Push':
+        if 'Push' in result:
             pushes += 1
-        if result == 'Blackjack':
+        if 'Blackjack' in result:
             blackjacks += 1
     
     # divide the counters by the number of iterations and then output as a dictionary
@@ -256,14 +307,14 @@ def simulate(handInput, upcard: str, iterations: int = 1000, trueCount = 0):
 
 
 
-def createHardTotalTable(trueCount = 0, iterations = 10000, statistic = 'Ex'):
+def createHardTotalTable(trueCount = 0, iterations = 10000, statistic = 'Win prop'):
     """Creates a csv that contains the simulated statistic for each hand and upcard in the hard totals table. Ex means expected value."""
     
     if statistic not in ['Ex', 'Win prop', 'Loss prop', 'Push prop']:
         raise Exception(f"Inputted statistic {statistic} is invalid. Valid stat strings are: 'Ex', 'Win prop', 'Loss prop', 'Push prop'")
     
     hardTotalEx = pd.DataFrame(
-        index = [str(i) for i in range(20, 3, -1)], 
+        index = [str(i) for i in range(20, 1, -1)], 
         columns = [str(i) for i in range(2, 11)] + ['A']
     )
     
@@ -274,7 +325,7 @@ def createHardTotalTable(trueCount = 0, iterations = 10000, statistic = 'Ex'):
     hardTotalEx.to_csv(f'hard total output count{trueCount}.csv')
 
 
-def createSoftTotalTable(trueCount = 0, iterations = 10000, statistic = 'Ex'):
+def createSoftTotalTable(trueCount = 0, iterations = 10000, statistic = 'Win prop'):
     """Creates a csv that contains the simulated statistic for each hand and upcard in the soft totals table. Ex means expected value."""
     
     if statistic not in ['Ex', 'Win prop', 'Loss prop', 'Push prop']:
@@ -292,12 +343,20 @@ def createSoftTotalTable(trueCount = 0, iterations = 10000, statistic = 'Ex'):
     softTotalEx.to_csv('soft total output.csv')
 
 
-createHardTotalTable(iterations = 100, trueCount = 5)
+#createHardTotalTable(iterations = 100, trueCount = 0, statistic = 'Win prop')
+
+game = Blackjack(upcard = '5')
+game.result()
+print(game)
+
+    
 
 # doubling means you hit once then stop
 # when you split aces, you only get one card for each hand
 # when splitting you can split until you have 4 hands, often max of 3
 
 # when you have a blackjack, the dealer does not play
+
+# need a findOptimalMove function that takes a hand, upcard, and shoe (mostly for the true count) and returns the best move that also considers deviations
 
 # when generating the cards that satisfy the given true count, make sure to remove those cards from the full shoe rather than making them the shoe
