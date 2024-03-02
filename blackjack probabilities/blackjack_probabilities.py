@@ -93,6 +93,24 @@ def generateShoe(trueCount = 0, decks = 6):
             
         return(shoe)
 
+def getTrueCount(shoe, decks = 6):
+    """Finds the true count of a shoe given the initial shoe size (number of decks)"""
+    # creates a full shoe then removes every card from the given shoe from the full shoe to get the complement
+    fullShoe = DECK * decks
+    for card in shoe:
+        fullShoe.remove(card)
+    fullShoeComplement = fullShoe
+    
+    # number of -1s, +1s, and 0s
+    negative = fullShoeComplement.count('10') + fullShoeComplement.count('A')
+    positive = sum([fullShoeComplement.count(str(i)) for i in range(2, 7)])
+    zero = sum([fullShoeComplement.count(str(i)) for i in range(7, 10)])
+    
+    # find the true count and return it
+    trueCount = (positive - negative) / (len(shoe) / 52)
+    return trueCount
+    
+# this one isn't used anywhere for now
 def superTotal(hand):
     """Same as total, except treats every ace as an 11."""
     handTotal = 0
@@ -105,18 +123,18 @@ def superTotal(hand):
     return handTotal
 
 class Blackjack():
-    def __init__(self, hand = None, upcard = None, decks:int = DECKS, trueCount:float = 0, double:bool = True):
+    def __init__(self, hand = None, upcard = None, decks:int = DECKS, trueCount:float = 0, double:bool = True, DAS:bool = True):
         """Creates a blackjack game."""
 
         # defines the current shoe of the blackjack game
         self.deck = generateShoe(trueCount = trueCount)
         
-        # defines whether or not the game allows doubling
-        self.double = True
+        # defines whether or not the game allows doubling and doubling after splitting
+        self.double = double
+        self.DAS = DAS
         
         # if no hand or upcard is passed when defining the class, randomize them
         if hand is None and upcard is None:
-            print('tw none')
             cards = random.choice(self.deck, size = 4, replace = False)
             self.playerHand = [cards[0]] + [cards[2]]
             self.dealerHiddenCard = cards[1]
@@ -164,10 +182,19 @@ class Blackjack():
             self.deck.remove(self.dealerUpcard); self.deck.remove(self.dealerHiddenCard)
             for card in self.playerHand:
                 self.deck.remove(card)
+                
+        #splits hand if hand ought to be split
+        if self.playerHand[0] == self.playerHand[1]:
+            action = pairSplitting[self.dealerUpcard][self.playerHand[0]] # WHERE THE CSV IS CALLED AND MOVE IS CALCULATED
+            if action == 'Y/N':
+                action = 'Y' if self.DAS == True else 'N'
+            if action == 'Y':
+                self.playerHand.pop(1)
         
         # sets playerState to playing
         self.playerState = 'Playing'
         
+        # if the player doubled. Needed for E(x) calculations later
         self.doubled = False
 
     def deal(self, hand):
@@ -178,25 +205,47 @@ class Blackjack():
 
     def playerTurn(self, action):
         """Takes an action as an input (H, S, D, Ds) and modifies self.playerHand accordingly."""
+        
+        # action = Hit
         if action == 'H':
-            self.deal(self.playerHand)
-            self.playerState = 'No more double'
-            if total(self.playerHand) > 21:
+            # if player's hand is a split Ace
+            if self.playerHand == ['A']:
+                # when you split with aces, you only get one card, so playerState is set to Done
+                self.deal(self.playerHand)
                 self.playerState = 'Done'
+            # otherwise
+            else:
+                self.deal(self.playerHand)
+                self.playerState = 'No more double' # disallow doubling after the first hit
+                # if player busts
+                if total(self.playerHand) > 21:
+                    self.playerState = 'Done'
+                    
+        # action = Stand
         elif action == 'S':
             self.playerState = 'Done'
+            
+        # action = Double and double is allowed and player hasn't already hit
         elif 'D' in action and self.double == True and self.playerState == 'Playing':
             self.deal(self.playerHand)
             self.doubled = True
             self.playerState = 'Done'
+            
+        # action = Double if not hit and double isn't possible
         elif action == 'D':
             self.deal(self.playerHand)
+            self.playerState = 'No more double' # disallow doubling after the first hit (this probably isn't necessary but i'm keeping it here anyway)
+            # if player busts
             if total(self.playerHand) > 21:
                 self.playerState = 'Done'
+                
+        # action = Double if not stand and double isn't possible
         elif action == 'Ds':
             self.playerState = 'Done'
+        
+        # action that doesn't exist
         else:
-            raise Exception('YOU BROKE IT WTF DID YOU DO')
+            raise Exception('invalid action idk how that happened')
                   
     def playerPlay(self):
         """Modifies self.playerHand as if the player is playing optimally."""
@@ -208,7 +257,7 @@ class Blackjack():
                 softValue = playerTotal - 11
                 softTotalEntry = f'A,{softValue}'
 
-                action = softTotals[self.dealerUpcard][softTotalEntry]
+                action = softTotals[self.dealerUpcard][softTotalEntry] # WHERE THE CSV IS CALLED AND MOVE IS CALCULATED
                 self.playerTurn(action)
                 
             # case where an Ace is not in the hand (ie the hard total table must be used)
@@ -217,11 +266,19 @@ class Blackjack():
                 self.playerTurn(action)
             
     def dealerPlay(self):
+        """Makes the dealer play out their hand."""
         while total(self.dealerHand) < 17:
             self.deal(self.dealerHand)
-           
+    
+    # unused for now but will be useful later
+    def playOnce(self):
+        """Makes the player play with perfect moves, followed by the dealer."""
+        self.playerPlay()
+        if total(self.playerHand) < 21:
+            self.dealerPlay()
 
     def result(self):
+        """Makes the player play with perfect moves, followed by the dealer, then calculates the result."""
         # the player plays, then the dealer plays
         self.playerPlay()
         if total(self.playerHand) < 21:
@@ -243,7 +300,8 @@ class Blackjack():
                 output = 'Blackjack'
             else:
                 output = 'Win'
-                
+        
+        # if the player doubled, add 'Doubled' to the front of the string
         if self.doubled == True:
             output = f'Doubled {output}'
             
@@ -255,6 +313,7 @@ class Blackjack():
 game = Blackjack(['A', '10'], '2')
 
 def simulate(handInput, upcard: str, iterations: int = 1000, trueCount = 0):
+    """Simulates one single combination of hand and upcard many times. The shoe used will have a true count of trueCount. handInput is either an integer (hard total) or a string (soft total, such as 'A,2')."""
     # initialize counters
     wins = 0
     pushes = 0
@@ -283,7 +342,7 @@ def simulate(handInput, upcard: str, iterations: int = 1000, trueCount = 0):
         else:
             hand = [handInput[0], handInput[2:]]
         
-        # run the game
+        # create and run the game
         game = Blackjack(hand, upcard, trueCount = trueCount)
         result = game.result()
         
@@ -308,55 +367,68 @@ def simulate(handInput, upcard: str, iterations: int = 1000, trueCount = 0):
 
 
 def createHardTotalTable(trueCount = 0, iterations = 10000, statistic = 'Win prop'):
-    """Creates a csv that contains the simulated statistic for each hand and upcard in the hard totals table. Ex means expected value."""
+    """Creates a table where the rows are hard totals, the columns are upcards, and each cell is the probability of winning given that situation and true count."""
     
+    # check if the passed statistic variable is in the defined dicitonary that simulate() returns
     if statistic not in ['Ex', 'Win prop', 'Loss prop', 'Push prop']:
         raise Exception(f"Inputted statistic {statistic} is invalid. Valid stat strings are: 'Ex', 'Win prop', 'Loss prop', 'Push prop'")
     
+    # defines an empty table of hard totals/upcards to write to
     hardTotalEx = pd.DataFrame(
         index = [str(i) for i in range(20, 1, -1)], 
         columns = [str(i) for i in range(2, 11)] + ['A']
     )
     
+    # simulates many blackjack games for each combination of hard total and upcard and writes the given statistic to the table
     for handTotal, row in hardTotalEx.iterrows():
         for upcard in hardTotals.columns:
             print(f'Upcard: {upcard}, Hand total: {handTotal}')
             hardTotalEx[upcard][handTotal] = simulate(int(handTotal), upcard, iterations = iterations, trueCount = trueCount)[statistic]
+            
+    # saves the table to a csv
     hardTotalEx.to_csv(f'hard total output count{trueCount}.csv')
 
 
 def createSoftTotalTable(trueCount = 0, iterations = 10000, statistic = 'Win prop'):
-    """Creates a csv that contains the simulated statistic for each hand and upcard in the soft totals table. Ex means expected value."""
+    """Creates a table where the rows are soft totals, the columns are upcards, and each cell is the probability of winning given that situation and true count."""
     
+    # check if the passed statistic variable is in the defined dicitonary that simulate() returns
     if statistic not in ['Ex', 'Win prop', 'Loss prop', 'Push prop']:
         raise Exception(f"Inputted statistic {statistic} is invalid. Valid stat strings are: 'Ex', 'Win prop', 'Loss prop', 'Push prop'")
     
+    # defines an empty table of soft totals/upcards to write to
     softTotalEx = pd.DataFrame(
         index = [f'A,{i}' for i in range(10, 1, -1)], 
         columns = [str(i) for i in range(2, 11)] + ['A']
     )
     
+    # simulates many blackjack games for each combination of soft total and upcard and writes the given statistic to the table
     for hand, row in softTotals.iterrows():
         for upcard in hardTotals.columns:
             print(f'Upcard: {upcard}, Hand: {hand}')
             softTotalEx[upcard][hand] = simulate(hand, upcard, iterations = iterations)[statistic]
+            
+    # saves the table to a csv
     softTotalEx.to_csv('soft total output.csv')
 
 
-#createHardTotalTable(iterations = 100, trueCount = 0, statistic = 'Win prop')
-
-game = Blackjack(upcard = '5')
-game.result()
-print(game)
-
+if __name__ == '__main__':
+    game = Blackjack(hand = ['A', 'A'], upcard = '10')
+    game.result()
+    print(game)
     
 
-# doubling means you hit once then stop
-# when you split aces, you only get one card for each hand
 # when splitting you can split until you have 4 hands, often max of 3
 
-# when you have a blackjack, the dealer does not play
+# todo list:
+    # need a findOptimalMove function that takes a hand, upcard, and shoe (mostly for the true count) and returns the best move that also considers deviations
+    # need the same thing for splitting
+    # the Blackjack class needs a discardPile attrtibute
+    # need a Blackjack.reset() method that puts the cards in the player and dealer hands in a discard pile and deals them a new hand. Every other attribute should stay the same
+    # given a true count, simulate the probability of every possible combination of player hand and upcard and store that data in a table
+    # use this to find the Ev for a shoe with a certain true count
+    # simulate multiple games and keep track of the number of hands played and the true count. Graph this as a scatter plot or something later
 
-# need a findOptimalMove function that takes a hand, upcard, and shoe (mostly for the true count) and returns the best move that also considers deviations
-
-# when generating the cards that satisfy the given true count, make sure to remove those cards from the full shoe rather than making them the shoe
+# todo finished
+    # make it so that if a player has the same card in their hand and they should split against the current upcard, their hand becomes just one instance of the two cards. This simulates the chance of each hand winning individually
+    # need a getTrueCount function that takes a shoe and returns its true count. Needed for the next function in this list
