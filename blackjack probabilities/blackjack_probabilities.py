@@ -1,20 +1,37 @@
 import pandas as pd
+from datascience import *
 from numpy import random
 import math
 
-# number of decks in the dealer's pile (the standard is 6)
-DECKS = 6
+# some constants
 
+DECKS = 6 # number of decks in the dealer's pile (the standard is 6)
+
+# dictionaries that store deviation data
+splitDeviations = {'10,4': {'sign':'>', 'count':6, 'action':'Y'}, '10,5':{'sign':'>', 'count':5, 'action':'Y'}, '10,6':{'sign':'>', 'count':4, 'action':'Y'}}
+handDeviations = {
+    'A,8,4': {'sign':'>', 'count':3, 'action':'Ds'}, 'A,8,5': {'sign':'>', 'count':1, 'action':'Ds'}, 'A,8,5': {'sign':'<', 'count':0, 'action':'S'}, 'A,6,2':{'sign':'>', 'count':1, 'action':'D'},
+    '16,9': {'sign':'>', 'count':4, 'action':'S'}, '16,10': {'sign':'>', 'count':0, 'action':'S'}, '16,A': {'sign':'>', 'count':3, 'action':'S'},
+    '15,10': {'sign':'>', 'count':4, 'action':'S'}, '15,A': {'sign':'>', 'count':5, 'action':'S'},
+    '13,2': {'sign':'<', 'count':-1, 'action':'H'},
+    '12,2': {'sign':'>', 'count':3, 'action':'S'}, '12,3': {'sign':'>', 'count':2, 'action':'S'}, '12,4': {'sign':'<', 'count':0, 'action':'H'},
+    '10,10': {'sign':'>', 'count':4, 'action':'D'}, '10,A': {'sign':'>', 'count':3, 'action':'D'},
+    '9,2': {'sign':'>', 'count':1, 'action':'D'}, '9,7': {'sign':'>', 'count':3, 'action':'D'},
+    '8,6': {'sign':'>', 'count':2, 'action':'D'}
+     }
+
+possibleUpcards = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '10', '10', '10', 'A']
+DECK = possibleUpcards * 4 # full deck of 52 cards
+
+# optimal move tables
 hardTotals = pd.read_csv('hard totals.csv')
 softTotals = pd.read_csv('soft totals.csv')
 pairSplitting = pd.read_csv('pair splitting.csv')
 
+# minor reformatting
 hardTotals.set_index('Total', inplace = True)
 softTotals.set_index('Soft Total', inplace = True)
 pairSplitting.set_index('Pair', inplace = True)
-
-possibleUpcards = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '10', '10', '10', 'A']
-DECK = possibleUpcards * 4
 
 def value(card):
     """Takes a card as a string and returns its value as an integer."""
@@ -110,6 +127,29 @@ def getTrueCount(shoe, decks = 6):
     trueCount = (positive - negative) / (len(shoe) / 52)
     return trueCount
     
+def getOptimalMove(hand: str, upcard: str, shoe: float = DECK * DECKS):
+    """Takes a hand, upcard, and shoe, and then returns the best move. Hand should be formatted as 'A,5' or a integer hard total."""
+    # if given hand has a potential deviation
+    key = f'{hand},{upcard}'
+    if key in handDeviations:
+        print('WATCH OUT THAT SHIT IS A DEVIATION')
+        deviation = handDeviations[key]
+        print(deviation)
+        trueCount = getTrueCount(shoe, decks = DECKS)
+        print(trueCount)
+        if deviation['sign'] == '>' and deviation['count'] <= trueCount:
+            return deviation['action']
+        elif deviation['sign'] == '<' and deviation['count'] >= trueCount:
+            return deviation['action']
+    # otherwise
+    else:
+        if 'A' in hand:
+            return softTotals[upcard][hand]
+        else:
+            print(upcard, type(upcard))
+            print(hand, type(hand))
+            return hardTotals[upcard][int(hand)]
+
 # this one isn't used anywhere for now
 def superTotal(hand):
     """Same as total, except treats every ace as an 11."""
@@ -123,7 +163,7 @@ def superTotal(hand):
     return handTotal
 
 class Blackjack():
-    def __init__(self, hand = None, upcard = None, decks:int = DECKS, trueCount:float = 0, double:bool = True, DAS:bool = True):
+    def __init__(self, hand = None, upcard = None, decks:int = DECKS, trueCount:float = 0, double:bool = True, DAS:bool = True, shoeSizeLowerBound = 2):
         """Creates a blackjack game."""
 
         # defines the current shoe of the blackjack game
@@ -196,6 +236,18 @@ class Blackjack():
         
         # if the player doubled. Needed for E(x) calculations later
         self.doubled = False
+        
+        # number of hands played. Increases every time Blackjack().result() is run
+        self.handsPlayed = 0
+        self.shoeSizeLowerBound = shoeSizeLowerBound # at what shoe size the blackjack game ends
+
+    def trueCount(self):
+        """Returns the true count of the game's shoe."""
+        return getTrueCount(self.deck)
+    
+    def shoeSize(self):
+        """Returns the size of the shoe in decks."""
+        return len(self.deck)/52
 
     def deal(self, hand):
         """Deals a card from the deck to the specified hand (self.playerHand or self.dealerHand)."""
@@ -284,6 +336,9 @@ class Blackjack():
         if total(self.playerHand) < 21:
             self.dealerPlay()
         
+        # increases number of hands played by 1
+        self.handsPlayed += 1
+
         # determines whether the player wins or loses
         playerTotal = total(self.playerHand)
         dealerTotal = total(self.dealerHand)
@@ -304,13 +359,26 @@ class Blackjack():
         # if the player doubled, add 'Doubled' to the front of the string
         if self.doubled == True:
             output = f'Doubled {output}'
-            
+        
         return output
+    
+    def reset(self):
+        """Starts a new game with the same shoe. The player and dealer hands are randomized."""
+        cards = random.choice(self.deck, size = 4, replace = False)
+        self.playerHand = [cards[0]] + [cards[2]]
+        self.dealerHiddenCard = cards[1]
+        self.dealerUpcard = cards[3]
+        self.dealerHand = [self.dealerUpcard, self.dealerHiddenCard]
+            
+        self.deck.remove(self.dealerHiddenCard); self.deck.remove(self.dealerUpcard)
+        for card in self.playerHand:
+            self.deck.remove(card)
+            
+    def isFinished(self):
+        return True if self.shoeSize() < self.shoeSizeLowerBound else False
         
     def __str__(self):
         return f'Upcard: {self.dealerUpcard}\nHand: {self.playerHand}\nDealer hand: {self.dealerHand}'
-
-game = Blackjack(['A', '10'], '2')
 
 def simulate(handInput, upcard: str, iterations: int = 1000, trueCount = 0):
     """Simulates one single combination of hand and upcard many times. The shoe used will have a true count of trueCount. handInput is either an integer (hard total) or a string (soft total, such as 'A,2')."""
@@ -365,7 +433,6 @@ def simulate(handInput, upcard: str, iterations: int = 1000, trueCount = 0):
         )
 
 
-
 def createHardTotalTable(trueCount = 0, iterations = 10000, statistic = 'Win prop'):
     """Creates a table where the rows are hard totals, the columns are upcards, and each cell is the probability of winning given that situation and true count."""
     
@@ -410,25 +477,60 @@ def createSoftTotalTable(trueCount = 0, iterations = 10000, statistic = 'Win pro
             
     # saves the table to a csv
     softTotalEx.to_csv('soft total output.csv')
-
-
+    
+def simulateHandsPlayedVsTrueCount(games = 10000, decks = 6):
+    """Creates a table with two columns: Hands played, and the current true count at the current number of hands played."""
+    handsPlayed = []
+    trueCounts = []
+    for i in range(games):
+        if i%(games/100) == 0:
+            print(f'{i*100/games}%')
+        blackjack = Blackjack()
+        while not blackjack.isFinished():
+            blackjack.result()
+            trueCounts.append(blackjack.trueCount())
+            handsPlayed.append(blackjack.handsPlayed)
+            blackjack.reset()
+    
+    data = {'True Count': trueCounts, 'Hands Played': handsPlayed}
+    df = pd.DataFrame(data = data)
+    df.to_csv('hands played to true count.csv')
+    
 if __name__ == '__main__':
-    game = Blackjack(hand = ['A', 'A'], upcard = '10')
-    game.result()
-    print(game)
+    game = Blackjack(hand = ['7', '9'], upcard = '9', trueCount = 5)
+    shoe = game.deck
+    print(game.playerHand)
+    print(game.dealerHand)
+    if 'A' in game.playerHand:
+        notAce = [card for card in game.playerHand if card != 'A'][0]
+        hand = f'A,{notAce}'
+    else:
+        hand = str(sum([int(card) for card in game.playerHand]))
+    
+    print(getOptimalMove(hand, game.dealerUpcard, shoe))
+    
     
 
 # when splitting you can split until you have 4 hands, often max of 3
 
 # todo list:
-    # need a findOptimalMove function that takes a hand, upcard, and shoe (mostly for the true count) and returns the best move that also considers deviations
+    # the Blackjack class needs an option for the passed hand and upcard to not draw from the shoe (so that the true count is preserved)    
     # need the same thing for splitting
-    # the Blackjack class needs a discardPile attrtibute
-    # need a Blackjack.reset() method that puts the cards in the player and dealer hands in a discard pile and deals them a new hand. Every other attribute should stay the same
     # given a true count, simulate the probability of every possible combination of player hand and upcard and store that data in a table
+        # uh the size of the shoe impacts this a bit so i guess randomize between whatever shoes are possible with the true count
     # use this to find the Ev for a shoe with a certain true count
-    # simulate multiple games and keep track of the number of hands played and the true count. Graph this as a scatter plot or something later
+    # find Ev for every type of move, just not the perfect one, to cross check with the given move table
+    # ok maybe given a true count, find the Ev for every possible deck size instead of randomizing between them
+        # alternatively just make it be the largest possible shoe size that fits the true count
+    # alternative to both of these (chris suggestion): just simulate a ton of games and record the outcome of a game and the true count
+
+# in progress
+    # need a findOptimalMove function that takes a hand, upcard, and shoe (mostly for the true count) and returns the best move that also considers deviations    
 
 # todo finished
     # make it so that if a player has the same card in their hand and they should split against the current upcard, their hand becomes just one instance of the two cards. This simulates the chance of each hand winning individually
     # need a getTrueCount function that takes a shoe and returns its true count. Needed for the next function in this list
+    # need a Blackjack.truecount()
+    # need a Blackjack.reset() method that puts the cards in the player and dealer hands in a discard pile and deals them a new hand. Every other attribute should stay the same
+    # simulate multiple games and keep track of the number of hands played and the true count. Graph this as a scatter plot or something later
+    # create a dict of deviations 
