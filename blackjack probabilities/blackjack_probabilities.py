@@ -374,6 +374,8 @@ class Blackjack():
         for card in self.playerHand:
             self.deck.remove(card)
             
+        self.doubled = False
+            
     def isFinished(self):
         return True if self.shoeSize() < self.shoeSizeLowerBound else False
         
@@ -491,10 +493,39 @@ def simulateHandsPlayedVsTrueCount(games = 10000, decks = 6):
             trueCounts.append(blackjack.trueCount())
             handsPlayed.append(blackjack.handsPlayed)
             blackjack.reset()
-    
-    data = {'True Count': trueCounts, 'Hands Played': handsPlayed}
+            
+    # this needs the data dict lol
+            
+def simulateManyGames(games = 1000, decks = 6):
+    """Creates a table with two columns: Hands played, and the current true count at the current number of hands played."""
+    trueCounts = []
+    initialPlayerHands = []
+    upcards = []
+    finalPlayerHands = []
+    finalDealerHands = []
+    results = []
+    for i in range(games):
+        if i%(games/100) == 0:
+            print(f'{i*100/games}%')
+        blackjack = Blackjack()
+        while not blackjack.isFinished():
+            
+            trueCounts.append(blackjack.trueCount())
+            initialPlayerHands.append(blackjack.playerHand)
+            upcards.append(blackjack.dealerUpcard)
+            
+            result = blackjack.result()
+            
+            finalPlayerHands.append(blackjack.playerHand)
+            finalDealerHands.append(blackjack.dealerHand)
+            results.append(result)
+
+            blackjack.reset()
+
+    roundedTrueCounts = [math.floor(count) for count in trueCounts]
+    data = {'True Count': trueCounts, 'Played Hand': initialPlayerHands, 'Upcard': upcards, 'Final Player Hand': finalPlayerHands, 'Final Dealer Hand': finalDealerHands, 'Result': results}
     df = pd.DataFrame(data = data)
-    df.to_csv('hands played to true count.csv')
+    df.to_csv('game data.csv')
     
 if __name__ == '__main__':
     game = Blackjack(hand = ['7', '9'], upcard = '9', trueCount = 5)
@@ -507,13 +538,15 @@ if __name__ == '__main__':
     else:
         hand = str(sum([int(card) for card in game.playerHand]))
     
-    print(getOptimalMove(hand, game.dealerUpcard, shoe))
+    simulateManyGames()
     
     
 
 # when splitting you can split until you have 4 hands, often max of 3
 
-# todo list:
+# bug: 'doubled' is showing up in the results for good intial hands that shouldn't be hitting (the final hand shows that )    
+
+# deprecated todo list:    
     # the Blackjack class needs an option for the passed hand and upcard to not draw from the shoe (so that the true count is preserved)    
     # need the same thing for splitting
     # given a true count, simulate the probability of every possible combination of player hand and upcard and store that data in a table
@@ -522,10 +555,13 @@ if __name__ == '__main__':
     # find Ev for every type of move, just not the perfect one, to cross check with the given move table
     # ok maybe given a true count, find the Ev for every possible deck size instead of randomizing between them
         # alternatively just make it be the largest possible shoe size that fits the true count
+
+# actual todo list:  
     # alternative to both of these (chris suggestion): just simulate a ton of games and record the outcome of a game and the true count
+    #  CODE SPLITTING :(
 
 # in progress
-    # need a findOptimalMove function that takes a hand, upcard, and shoe (mostly for the true count) and returns the best move that also considers deviations    
+    #  CODE SPLITTING :(    
 
 # todo finished
     # make it so that if a player has the same card in their hand and they should split against the current upcard, their hand becomes just one instance of the two cards. This simulates the chance of each hand winning individually
