@@ -128,19 +128,25 @@ def getTrueCount(shoe, decks = 6):
     return trueCount
     
 def getOptimalMove(hand: str, upcard: str, shoe: float = DECK * DECKS):
-    """Takes a hand, upcard, and shoe, and then returns the best move. Hand should be formatted as 'A,5' or a integer hard total."""
-    # if given hand has a potential deviation
+    """Takes a hand, upcard, and shoe, and then returns the best move. Hand should be formatted as 'A,5' or an integer hard total."""
+    
     key = f'{hand},{upcard}'
+    
+    # if given hand has a potential deviation
     if key in handDeviations:
-        print('WATCH OUT THAT SHIT IS A DEVIATION')
         deviation = handDeviations[key]
-        print(deviation)
         trueCount = getTrueCount(shoe, decks = DECKS)
-        print(trueCount)
         if deviation['sign'] == '>' and deviation['count'] <= trueCount:
             return deviation['action']
         elif deviation['sign'] == '<' and deviation['count'] >= trueCount:
             return deviation['action']
+        else:
+            if 'A' in hand:
+                return softTotals[upcard][hand]
+            else:
+                print(upcard, type(upcard))
+                print(hand, type(hand))
+                return hardTotals[upcard][int(hand)]
     # otherwise
     else:
         if 'A' in hand:
@@ -257,7 +263,8 @@ class Blackjack():
 
     def playerTurn(self, action):
         """Takes an action as an input (H, S, D, Ds) and modifies self.playerHand accordingly."""
-        
+        print(action)
+
         # action = Hit
         if action == 'H':
             # if player's hand is a split Ace
@@ -309,12 +316,14 @@ class Blackjack():
                 softValue = playerTotal - 11
                 softTotalEntry = f'A,{softValue}'
 
-                action = softTotals[self.dealerUpcard][softTotalEntry] # WHERE THE CSV IS CALLED AND MOVE IS CALCULATED
+                #action = softTotals[self.dealerUpcard][softTotalEntry] # WHERE THE CSV IS CALLED AND MOVE IS CALCULATED
+                action = getOptimalMove(softTotalEntry, self.dealerUpcard, self.deck)
                 self.playerTurn(action)
                 
             # case where an Ace is not in the hand (ie the hard total table must be used)
             else:
-                action = hardTotals[self.dealerUpcard][playerTotal]
+                # action = hardTotals[self.dealerUpcard][playerTotal]
+                action = getOptimalMove(playerTotal, self.dealerUpcard, self.deck)
                 self.playerTurn(action)
             
     def dealerPlay(self):
@@ -528,17 +537,11 @@ def simulateManyGames(games = 1000, decks = 6):
     df.to_csv('game data.csv')
     
 if __name__ == '__main__':
-    game = Blackjack(hand = ['7', '9'], upcard = '9', trueCount = 5)
+    game = Blackjack(hand = ['A', '8'], upcard = '4', trueCount = 0)
     shoe = game.deck
-    print(game.playerHand)
-    print(game.dealerHand)
-    if 'A' in game.playerHand:
-        notAce = [card for card in game.playerHand if card != 'A'][0]
-        hand = f'A,{notAce}'
-    else:
-        hand = str(sum([int(card) for card in game.playerHand]))
-    
-    simulateManyGames()
+    print(game)
+    game.result()
+    print(game)
     
     
 
@@ -557,11 +560,12 @@ if __name__ == '__main__':
         # alternatively just make it be the largest possible shoe size that fits the true count
 
 # actual todo list:  
+    # implement the functions that find the best move considering count    
     # alternative to both of these (chris suggestion): just simulate a ton of games and record the outcome of a game and the true count
     #  CODE SPLITTING :(
 
 # in progress
-    #  CODE SPLITTING :(    
+    # implement the functions that find the best move considering count        
 
 # todo finished
     # make it so that if a player has the same card in their hand and they should split against the current upcard, their hand becomes just one instance of the two cards. This simulates the chance of each hand winning individually
