@@ -25,8 +25,11 @@
     <Compile Include="classes.py" />
     <Compile Include="constants.py" />
     <Compile Include="functions.py" />
-    <Compile Include="graph generation.py" />
+    <Compile Include="graphGenerationUtilFuncs.py" />
+    <Compile Include="graphGeneration.py" />
+    <Compile Include="graph.py" />
     <Compile Include="simulators.py" />
+    <Compile Include="tableReformatFuncs.py" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

@@ -1,5 +1,6 @@
 from constants import *
 from numpy import random
+from datetime import datetime
 
 def value(card):
     """Takes a card as a string and returns its value as an integer."""
@@ -156,3 +157,6 @@ def superTotal(hand):
             addValue = value(card)
         handTotal += addValue
     return handTotal
+
+def now():
+    return f'{datetime.now():%I:%M:%S %p}'

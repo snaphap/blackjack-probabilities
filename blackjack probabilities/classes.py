@@ -166,11 +166,11 @@ class Blackjack():
         
         # action that doesn't exist
         else:
-            raise Exception('invalid action idk how that happened')
+            raise Exception(f'invalid action "{action}" idk how that happened')
                   
 
     def playerPlay(self, playerHand):
-        """Modifies self.playerHand as if the player is playing optimally."""
+        """Modifies playerHand as if the player is playing optimally."""
         while playerHand.state != 'Done' and total(playerHand.hand) <= 21:
             playerTotal = total(playerHand.hand)
             

@@ -1,7 +1,6 @@
 import pandas as pd
 from numpy import random
 import math
-from datetime import datetime
 
 from constants import *
 from functions import *
@@ -110,14 +109,14 @@ def createSoftTotalTable(trueCount = 0, iterations = 10000, statistic = 'Win pro
     softTotalEx.to_csv('soft total output.csv')
     
 
-# deprecated and also doesn't work anyway and i need to fix that
 def simulateHandsPlayedVsTrueCount(games = 10000, decks = 6):
     """Creates a table with two columns: Hands played, and the current true count at the current number of hands played."""
+    print(f'--- Beginning generation: {games:,} games ---')
     handsPlayed = []
     trueCounts = []
     for i in range(games):
         if i%(games/100) == 0:
-            print(f'{i*100/games}%')
+            print(f'{i*100/games}% | {i}  games | {now()}')
         blackjack = Blackjack()
         while not blackjack.isFinished():
             blackjack.result()
@@ -125,13 +124,16 @@ def simulateHandsPlayedVsTrueCount(games = 10000, decks = 6):
             handsPlayed.append(blackjack.handsPlayed)
             blackjack.reset()
             
-    # this needs the data dict lol
+    data = {'Hands Played': handsPlayed,'True Count': trueCounts}
+    df = pd.DataFrame(data = data)
+    df.to_csv('hands played to true count.csv')
+    
+    print(f'Finished at: {now()}')
          
     
-# not deprecated :D
 def simulateManyGames(games = 1000, decks = 6):
     """Creates a table with two columns: Hands played, and the current true count at the current number of hands played."""
-    print(f'--- Beginning generation: {games} games ---')
+    print(f'--- Beginning generation: {games:,} games ---')
     trueCounts = []
     initialPlayerHands = []
     upcards = []
@@ -140,7 +142,7 @@ def simulateManyGames(games = 1000, decks = 6):
     results = []
     for i in range(games):
         if i%(games/100) == 0:
-            print(f'{i*100/games}% | {i}  games | {datetime.now():%I:%M:%S %p}')
+            print(f'{i*100/games}% | {i}  games | {now()}')
         blackjack = Blackjack()
         while not blackjack.isFinished():
             
@@ -160,6 +162,6 @@ def simulateManyGames(games = 1000, decks = 6):
     
     data = {'True Count': trueCounts, 'Player Hand': initialPlayerHands, 'Upcard': upcards, 'Final Player Hand': finalPlayerHands, 'Final Dealer Hand': finalDealerHands, 'Result': results}
     df = pd.DataFrame(data = data)
-    df.to_csv('game data.csv')
+    df.to_csv('small game data.csv')
     
-    print(f'Finished at: {datetime.now():%I:%M %p}')
+    print(f'Finished at: {now()}')
