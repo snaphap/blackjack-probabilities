@@ -30,7 +30,9 @@ def averageEV(results):
 
 def handListToType(handList):
     """Takes an initial hand list and reformats it as either a hard total (ie 20) or a soft total (ie A,9)."""
-    handList = ast.literal_eval(handList)
+    if isinstance(handList, str):
+        handList = ast.literal_eval(handList)
+        
     if handList == ['A', 'A']:
         return 'A,1'
     elif 'A' in handList:

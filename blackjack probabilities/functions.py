@@ -103,7 +103,7 @@ def getTrueCount(shoe, decks = 6):
     return trueCount
     
 
-def getOptimalMove(hand: str, upcard: str, shoe: float = DECK * DECKS):
+def getOptimalMove(hand: str, upcard: str, shoe: list[str]):
     """Takes a hand, upcard, and shoe, and then returns the best move. Hand should be formatted as 'A,5' or an integer hard total."""
     
     key = f'{hand},{upcard}'
@@ -129,7 +129,7 @@ def getOptimalMove(hand: str, upcard: str, shoe: float = DECK * DECKS):
             return hardTotals[upcard][int(hand)]
 
 
-def getOptimalSplit(card:str, upcard: str, shoe: float = DECK * DECKS):
+def getOptimalSplit(card:str, upcard: str, shoe: list[str]):
     key = f'{card},{upcard}'
     
     # if given hand has a potential deviation
@@ -142,8 +142,30 @@ def getOptimalSplit(card:str, upcard: str, shoe: float = DECK * DECKS):
             return deviation['action']
         else:
             return pairSplitting[upcard][card]
+    # otherwise
     else:
         return pairSplitting[upcard][card]
+    
+
+def getOptimalSurrender(hand:str, upcard:str, shoe: list[str]):
+    key = f'{hand},{upcard}'
+    
+    # if given hand has a potential deviation
+    if key in surrenderDeviations:
+        deviation = surrenderDeviations[key]
+        trueCount = getTrueCount(shoe, decks = DECKS)
+        if deviation['sign'] == '>' and deviation['count'] <= trueCount:
+            return deviation['action']
+        elif deviation['sign'] == '<' and deviation['count'] >= trueCount:
+            return deviation['action']
+        else:
+            print('nope')
+            return surrender[upcard][int(hand)]
+    else:
+        if 'A' in hand:
+            return 'N'
+        else:
+            return surrender[upcard][hand]
 
 
 # this one isn't used anywhere for now

@@ -15,6 +15,12 @@ handDeviations = {
     '9,2': {'sign':'>', 'count':1, 'action':'D'}, '9,7': {'sign':'>', 'count':3, 'action':'D'},
     '8,6': {'sign':'>', 'count':2, 'action':'D'}
      }
+surrenderDeviations = {
+    '16,8': {'sign':'>', 'count':4, 'action':'Y'}, '16,9': {'sign':'<', 'count':-1, 'action':'N'},
+    '15,9': {'sign':'>', 'count':2, 'action':'Y'}, '15,10': {'sign':'<', 'count':0}, 'action':'N',
+    '15,A': {'sign':'>', 'count':-1, 'action':'Y'}
+    }
+
 
 possibleUpcards = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '10', '10', '10', 'A']
 DECK = possibleUpcards * 4 # full deck of 52 cards
@@ -23,8 +29,10 @@ DECK = possibleUpcards * 4 # full deck of 52 cards
 hardTotals = pd.read_csv('hard totals.csv')
 softTotals = pd.read_csv('soft totals.csv')
 pairSplitting = pd.read_csv('pair splitting.csv')
+surrender = pd.read_csv('surrender.csv')
 
 # minor reformatting
 hardTotals.set_index('Total', inplace = True)
 softTotals.set_index('Soft Total', inplace = True)
 pairSplitting.set_index('Pair', inplace = True)
+surrender.set_index('Total', inplace = True)

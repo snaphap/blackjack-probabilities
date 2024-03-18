@@ -5,7 +5,7 @@ import numpy as np
 from functions import now
 
 # maybe find a way to evaluate handtype automatically
-def handLineGraph(hardTotalColumns, handType, boundary = 6):
+def handLineGraph(columns, handType, boundary = 6):
     if not handType in ['Soft Total', 'Hard Total']:
         raise Exception(f'Invalid hand type {handType}. Valid hand types are: Soft Total, Hard Total')
     
@@ -20,8 +20,8 @@ def handLineGraph(hardTotalColumns, handType, boundary = 6):
     np.random.shuffle(colors)
     ax.set_prop_cycle(color=colors)
 
-    for column in hardTotalColumns.drop('True Counts'):
-        line = ax.plot(range(-1*boundary, boundary+1), hardTotalColumns[column], label = column)
+    for column in columns.drop('True Counts'):
+        line = ax.plot(range(-1*boundary, boundary+1), columns[column], label = column)
     ax.legend(loc='upper center', bbox_to_anchor=(.5, 1.125), fancybox=True, shadow=True, title = handType, ncol = 7 if handType == 'Hard Total' else 5)
     ax.set(xlabel = 'True Count', ylabel = 'Expected Value')
 
@@ -179,29 +179,6 @@ def softTotalEV(overalls):
 
 
 from tableReformatFuncs import *
-
-    # upcards
-        # upcards requires returning a selected subset of gameData, this will take a lot of space so it needs to be done before making gameDataRoundedTC
-        # once it's evaluated it won't be stored to memory permanently, no need to manually clear it
-    # generate gameDataRoundedTC and use it to replace gameData
-        # this is the second of three massive tables (first: gameData)
-    # generate trueCountData (not big)
-        # trueCountFreqBar
-        # trueCountEVBar
-    # generate gameDataHandTypes
-        # the third and last massive table, also the biggest. replace gameDataRoundedTC with it
-    # overalls
-        # requires selecting a subset of gameDataHandTypes, hopefully not an issue
-        # hardTotalEV
-        # softTotalEV
-    # generate gameDataTCHT
-        # ok the actual last massive table and also the actual biggest. replace gameDataHandTypes with it
-    # hand type stuff
-        # hardTotalLineGraph
-        # hardTotalHeatmap
-        # softTotalLineGraph
-        # softTotalHeatmap
-
 
 def generateAll(gameData, boundary):
     """Takes game data as an input and runs every graph generation function"""

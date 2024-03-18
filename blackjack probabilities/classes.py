@@ -8,6 +8,7 @@ class PlayerHand():
         self.hand = handList
         self.state = 'Playing'
         self.doubled = False
+        self.surrendered = False
         self.actions = []
         
 
@@ -16,7 +17,7 @@ class PlayerHand():
         
 
 class Blackjack():
-    def __init__(self, hand = None, upcard = None, decks:int = DECKS, trueCount:float = 0, double:bool = True, DAS:bool = True, shoeSizeLowerBound: float = 2, maxsplit: int = 3):
+    def __init__(self, hand = None, upcard = None, decks:int = DECKS, trueCount:float = 0, double:bool = True, DAS:bool = False, shoeSizeLowerBound: float = 2, maxsplit: int = 3, surrender: bool = True):
         """Creates a blackjack game."""
 
         # defines the current shoe of the blackjack game
@@ -25,6 +26,9 @@ class Blackjack():
         # defines whether or not the game allows doubling and doubling after splitting
         self.double = double
         self.DAS = DAS
+        
+        # true count before hands are dealt
+        self.initialTrueCount = getTrueCount(self.deck, decks = DECKS)
         
         # if no hand or upcard is passed when defining the class, randomize them
         if hand is None and upcard is None:
@@ -245,6 +249,7 @@ class Blackjack():
     
     def reset(self):
         """Starts a new game with the same shoe. The player and dealer hands are randomized."""
+        self.initialTrueCount = getTrueCount(self.deck, decks = DECKS)
         cards = random.choice(self.deck, size = 4, replace = False)
         self.playerHand = [cards[0]] + [cards[2]]
         self.dealerHiddenCard = cards[1]
