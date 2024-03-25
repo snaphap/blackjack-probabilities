@@ -33,6 +33,7 @@ def simulateHandsPlayedVsTrueCount(games = 10000, decks = 6):
 def simulateManyGames(games = 1000, decks = 6):
     """Creates a table with two columns: Hands played, and the current true count at the current number of hands played."""
     print(f'--- Beginning generation: {games:,} games ---')
+    handsPlayed = []
     initialTrueCounts = []
     roundedInitialTrueCounts = []
     trueCounts = []
@@ -54,6 +55,7 @@ def simulateManyGames(games = 1000, decks = 6):
         while not blackjack.isFinished():
             
             for playerHand in blackjack.playerHands:
+                handsPlayed.append(blackjack.handsPlayed)
                 initialTrueCounts.append(currentInitialTrueCount := blackjack.initialTrueCount)
                 roundedInitialTrueCounts.append(roundCount(currentInitialTrueCount))
                 trueCounts.append(currentTrueCount := blackjack.trueCount())
@@ -72,10 +74,12 @@ def simulateManyGames(games = 1000, decks = 6):
 
                 blackjack.reset()
     
-    data = {'Initial True Count': initialTrueCounts, 'Rounded Initial True Count': roundedInitialTrueCounts, 'True Count': trueCounts, 'Rounded True Count': roundedTrueCounts,
+    data = {'Hands Played': handsPlayed,
+            'Initial True Count': initialTrueCounts, 'Rounded Initial True Count': roundedInitialTrueCounts, 'True Count': trueCounts, 'Rounded True Count': roundedTrueCounts,
             'Player Hand': initialPlayerHands, 'Hand Type': handTypes, 'Hand Type|True Count': TCHTs,
             'Upcard': upcards, 'Final Player Hand': finalPlayerHands, 'Final Dealer Hand': finalDealerHands, 
             'Result': results}
+    
     return pd.DataFrame(data = data)
     
     print(f'Finished at: {now()}')

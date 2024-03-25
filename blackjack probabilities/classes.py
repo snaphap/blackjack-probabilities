@@ -17,7 +17,7 @@ class PlayerHand():
         
 
 class Blackjack():
-    def __init__(self, hand = None, upcard = None, decks:int = DECKS, trueCount:float = 0, double:bool = True, DAS:bool = False, shoeSizeLowerBound: float = 2, maxsplit: int = 3, surrender: bool = True):
+    def __init__(self, hand = None, upcard = None, decks:int = DECKS, trueCount:float = 0, double:bool = True, DAS:bool = True, shoeSizeLowerBound: float = 2, maxsplit: int = 3, surrender: bool = True):
         """Creates a blackjack game."""
 
         # defines the current shoe of the blackjack game
@@ -26,9 +26,10 @@ class Blackjack():
         # defines whether or not the game allows doubling and doubling after splitting
         self.double = double
         self.DAS = DAS
+        self.canSurrender = surrender
         
         # true count before hands are dealt
-        self.initialTrueCount = getTrueCount(self.deck, decks = DECKS)
+        self.initialTrueCount = getTrueCount(self.deck, decks = decks)
         
         # if no hand or upcard is passed when defining the class, randomize them
         if hand is None and upcard is None:
@@ -171,7 +172,19 @@ class Blackjack():
         # action that doesn't exist
         else:
             raise Exception(f'invalid action "{action}" idk how that happened')
-                  
+        
+
+    def shouldSurrender(self, entry):
+        """Given a soft/hard total entry, returns whether or not the hand should surrender."""
+        surrenderAction = getOptimalSurrender(entry, self.dealerUpcard, self.deck)
+        return True if surrenderAction == 'Y' else False
+    
+        
+    def surrenderHand(self, playerHand):
+        """Surrenders the given hand."""
+        playerHand.surrendered = True
+        playerHand.state = 'Done'
+        
 
     def playerPlay(self, playerHand):
         """Modifies playerHand as if the player is playing optimally."""
@@ -182,14 +195,25 @@ class Blackjack():
             if 'A' in playerHand.hand and noAceTotal(playerHand.hand) < 11:
                 softValue = playerTotal - 11
                 softTotalEntry = f'A,{softValue}'
-
-                action = getOptimalMove(softTotalEntry, self.dealerUpcard, self.deck)
-                self.playerTurn(playerHand, action)
+                
+                # surrender if necessary and possible
+                if self.shouldSurrender(softTotalEntry) and self.canSurrender:
+                    self.surrenderHand(playerHand)
+                
+                else:
+                    action = getOptimalMove(softTotalEntry, self.dealerUpcard, self.deck)
+                    self.playerTurn(playerHand, action)
                 
             # case where an Ace is not in the hand (ie the hard total table must be used)
             else:
-                action = getOptimalMove(str(playerTotal), self.dealerUpcard, self.deck)
-                self.playerTurn(playerHand, action)
+                # surrender if necessary and possible
+                if self.shouldSurrender(str(playerTotal)) and self.canSurrender:
+                    self.surrenderHand(playerHand)
+                    return
+
+                else:
+                    action = getOptimalMove(str(playerTotal), self.dealerUpcard, self.deck)
+                    self.playerTurn(playerHand, action)
             
 
     def dealerPlay(self):
@@ -210,7 +234,7 @@ class Blackjack():
         if not self.isDealerBlackjack():
             for playerHand in self.playerHands:
                 self.playerPlay(playerHand)
-        if any([not self.isPlayerBlackjack(playerHand) for playerHand in self.playerHands]):
+        if any(not self.isPlayerBlackjack(playerHand) for playerHand in self.playerHands) and not all(hand.surrendered for hand in self.playerHands):
             self.dealerPlay()
         
         # increases number of hands played by 1
@@ -249,7 +273,7 @@ class Blackjack():
     
     def reset(self):
         """Starts a new game with the same shoe. The player and dealer hands are randomized."""
-        self.initialTrueCount = getTrueCount(self.deck, decks = DECKS)
+        self.initialTrueCount = getTrueCount(self.deck, decks = decks)
         cards = random.choice(self.deck, size = 4, replace = False)
         self.playerHand = [cards[0]] + [cards[2]]
         self.dealerHiddenCard = cards[1]

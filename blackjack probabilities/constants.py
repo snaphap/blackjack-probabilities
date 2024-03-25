@@ -1,7 +1,8 @@
 import pandas as pd
+from config import *
 
 # DO NOT CHANGE THIS NUMBER OR THINGS WILL NOT WORK CORRECTLY
-DECKS = 6 # number of decks in the dealer's pile (the standard is 6)
+DECKS = decks # number of decks in the dealer's pile (the standard is 6)
 
 # dictionaries that store deviation data
 splitDeviations = {'10,4': {'sign':'>', 'count':6, 'action':'Y'}, '10,5':{'sign':'>', 'count':5, 'action':'Y'}, '10,6':{'sign':'>', 'count':4, 'action':'Y'}}
@@ -17,7 +18,7 @@ handDeviations = {
      }
 surrenderDeviations = {
     '16,8': {'sign':'>', 'count':4, 'action':'Y'}, '16,9': {'sign':'<', 'count':-1, 'action':'N'},
-    '15,9': {'sign':'>', 'count':2, 'action':'Y'}, '15,10': {'sign':'<', 'count':0}, 'action':'N',
+    '15,9': {'sign':'>', 'count':2, 'action':'Y'}, '15,10': {'sign':'<', 'count':0, 'action':'N'},
     '15,A': {'sign':'>', 'count':-1, 'action':'Y'}
     }
 

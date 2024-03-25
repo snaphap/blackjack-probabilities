@@ -23,6 +23,7 @@
   <ItemGroup>
     <Compile Include="blackjack_probabilities.py" />
     <Compile Include="classes.py" />
+    <Compile Include="config.py" />
     <Compile Include="constants.py" />
     <Compile Include="functions.py" />
     <Compile Include="graphGenerationUtilFuncs.py" />

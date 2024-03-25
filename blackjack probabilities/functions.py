@@ -104,7 +104,7 @@ def getTrueCount(shoe, decks = 6):
     
 
 def getOptimalMove(hand: str, upcard: str, shoe: list[str]):
-    """Takes a hand, upcard, and shoe, and then returns the best move. Hand should be formatted as 'A,5' or an integer hard total."""
+    """Takes a hand, upcard, and shoe, and then returns the best move. Hand should be formatted as 'A,5' or a hard total."""
     
     key = f'{hand},{upcard}'
     
@@ -159,13 +159,12 @@ def getOptimalSurrender(hand:str, upcard:str, shoe: list[str]):
         elif deviation['sign'] == '<' and deviation['count'] >= trueCount:
             return deviation['action']
         else:
-            print('nope')
             return surrender[upcard][int(hand)]
     else:
         if 'A' in hand:
             return 'N'
         else:
-            return surrender[upcard][hand]
+            return surrender[upcard][int(hand)]
 
 
 # this one isn't used anywhere for now

@@ -1,4 +1,5 @@
 from datascience import *
+import pandas as pd
 from graphGenerationUtilFuncs import *
 
 def addRoundedTC(gameData):
@@ -68,9 +69,9 @@ def softTotalColumns(GDTCHTsoftTotals, boundary):
 
 def trueCountData(gameDataRoundedTC, boundary):
     """Returns a table with true count data; to be inputted into FUNCTION NOT NAMED YET PUT IT LATER."""
-    counts = gameDataRoundedTC.group('Rounded True Count').column('count')
-    gameDataEV = gameDataRoundedTC.select('Rounded True Count', 'Result').group('Rounded True Count', averageEV).with_column('Count', counts)
-    filteredGameDataEV = gameDataEV.where('Rounded True Count', are.between(-1*boundary, boundary+1))
+    counts = gameDataRoundedTC.group('Rounded Initial True Count').column('count')
+    gameDataEV = gameDataRoundedTC.select('Rounded Initial True Count', 'Result').group('Rounded Initial True Count', averageEV).with_column('Count', counts)
+    filteredGameDataEV = gameDataEV.where('Rounded Initial True Count', are.between(-1*boundary, boundary+1))
     return filteredGameDataEV
 
 
@@ -85,6 +86,67 @@ def upcardData(gameData):
 
 def overalls(gameDataHandTypes):
     return gameDataHandTypes.select('Hand Type', 'Result').group('Hand Type', averageEV)
+
+
+def handTypeUpcardData(gameDataHandTypes):
+    """Groups by upcard and hand type and applies averageEV. NOTE: This returns a pd.DataFrame, not a datascience.Table."""
+    df = gameDataHandTypes.to_df()
+    df = df[['Upcard', 'Hand Type', 'Result']]
+    df['Result Vals'] = gameDataHandTypes.apply(resultToEV, 'Result')
+    df.drop(columns = ['Result'], inplace = True)
+    HTUgrouped = df.groupby(['Upcard', 'Hand Type'], group_keys = True).mean()
+
+    upcardList = ['10', '2', '3', '4', '5', '6', '7', '8', '9', 'A']
+
+    data = {'10':[], '2':[], '3':[], '4':[], '5':[], '6':[], '7':[], '8':[], '9':[], 'A':[]}
+
+    includedHandTypes = {'10':[], '2':[], '3':[], '4':[], '5':[], '6':[], '7':[], '8':[], '9':[], 'A':[]}
+
+    handTypes = []
+    for index, row in HTUgrouped.iterrows():
+        upcard = index[0]
+        handType = index[1]
+
+        if upcard == '10' and handType != 'A,1':
+            handTypes.append(handType)
+        if handType != 'A,1':
+            includedHandTypes[upcard] += [handType]
+            data[upcard] += [row.iloc[0]]
+    
+    # for debugging
+    testHandTypes = {str(i) for i in range(4, 21)} | {f'A,{i}' for i in range(2,11)}
+    missingData = {upcard: testHandTypes - set(includedHandTypes[upcard]) for upcard in upcardList}
+    print(handTypes)
+
+    try:
+        dataDF = pd.DataFrame(data = data, index = handTypes)
+    except Exception as E:
+        print(missingData)
+        raise Exception('Simulation size is not big enough. Try increasing the number of games simulated.')
+    # if this isnt here then pandas throws a warning later and i dont really understand why
+    dataDF.loc[:, 'Index'] = 0
+
+    return dataDF
+
+
+def hardUpcardData(HTupcardData):
+    hardDataDF = HTupcardData.filter(regex = r'\A\d', axis=0)
+    hardDataDF.loc[:, 'Index'] = [int(i) for i in list(hardDataDF.index)]
+    hardDataDF.set_index('Index', inplace = True)
+    hardDataDF = hardDataDF.sort_index()
+    return hardDataDF.reindex(columns = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'A'])
+
+
+def softUpcardData(HTupcardData):
+    softDataDF = HTupcardData.filter(regex = ',+', axis=0).drop('Index', axis = 1)
+
+    a = softDataDF.iloc[[i for i in range(len(softDataDF.index)) if i != 0], :]
+    b = softDataDF.iloc[[0], :]
+
+    softDataDF = pd.concat([a, b])
+    softDataDF = softDataDF.reindex(columns = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'A'])
+    
+    return softDataDF
 
 
 def createFiltered(gameDataHandTypes, boundary):
